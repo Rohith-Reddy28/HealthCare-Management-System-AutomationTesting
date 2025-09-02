@@ -14,6 +14,18 @@ conn = sqlite3.connect('database.db')
 # cursor to move in the database
 c = conn.cursor()
 
+# Create appointments table if it doesn't exist
+c.execute('''CREATE TABLE IF NOT EXISTS appointments
+             (ID INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              age INTEGER NOT NULL,
+              gender TEXT NOT NULL,
+              location TEXT NOT NULL,
+              scheduled_time TEXT NOT NULL,
+              phone TEXT NOT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+conn.commit()
+
 # empty list to later appends the ids from the database
 ids = []
 
@@ -65,24 +77,23 @@ class App:
         self.age_ent.place(x=275, y=140)
 
         # gender list
-        GenderList = ["Male",
-        "Female",
-        "Transgender"]
+        GenderList = ["Male", "Female", "Transgender"]
 
         # Option menu
         self.var = tk.StringVar()
         self.var.set(GenderList[0])
 
-        self.opt = tk.OptionMenu(self.master, self.var, *GenderList)
+        # Fixed: Changed self.master to self.left for proper placement
+        self.opt = tk.OptionMenu(self.left, self.var, *GenderList)
         self.opt.config(width=10, font=('arial', 11))
         self.opt.place(x=275, y=180)
 
-        # callback method
+        # Initialize gender_ent with default value
+        self.gender_ent = GenderList[0]
+
+        # callback method - Fixed: use self.var.get() and assign correct value
         def callback(*args):
-            for i in range(len(GenderList)):
-                if GenderList[i] == self.var.get():
-                    self.gender_ent = GenderList[i]
-                    break
+            self.gender_ent = self.var.get()
         
         self.var.trace("w", callback)
 
@@ -100,15 +111,22 @@ class App:
         self.submit.place(x=190, y=350)
 
         # getting the number of appointments fixed to view in the log
-        sql2 = "SELECT ID FROM appointments "
-        self.result = c.execute(sql2)
-        for self.row in self.result:
-            self.id = self.row[0]
-            ids.append(self.id)
+        try:
+            sql2 = "SELECT ID FROM appointments "
+            self.result = c.execute(sql2)
+            for self.row in self.result:
+                self.id = self.row[0]
+                ids.append(self.id)
 
-        # ordering the ids
-        self.new = sorted(ids)
-        self.final_id = self.new[len(ids)-1]
+            if ids:  # Check if there are any appointments
+                # ordering the ids
+                self.new = sorted(ids)
+                self.final_id = self.new[len(ids)-1]
+            else:
+                self.final_id = 0
+        except sqlite3.OperationalError:
+            # Table might not exist yet
+            self.final_id = 0
 
         # displaying the logs in right frame
         self.logs = Label(self.right, text="Appointment Log", font=('arial 20 bold'), fg='white', bg='steelblue')
@@ -119,7 +137,7 @@ class App:
         self.box.insert(END, "Total Appointments till now :  " + str(self.final_id))
 
     # function to call when the submit button is clicked
-    def add_appointment(self, event):
+    def add_appointment(self, event=None):
         # getting the user inputs
         self.val1 = self.name_ent.get()
         self.val2 = self.age_ent.get()
@@ -132,15 +150,36 @@ class App:
         if self.val1 == '' or self.val2 == '' or self.val3 == '' or self.val4 == '' or self.val5 == '' or self.val6 == '':
             tkinter.messagebox.showwarning("Warning","Please fill up all the details")
         else:
-            # now we add to the database
-            sql = "INSERT INTO 'appointments' (name, age, gender, location, scheduled_time, phone) VALUES(?, ?, ?, ?, ?, ?)"
-            c.execute(sql, (self.val1, self.val2, self.val3, self.val4, self.val5, self.val6))
-            conn.commit()
-            tkinter.messagebox.showinfo("Success","Appointment for "+str(self.val1)+" has been created")
-            
+            try:
+                # Validate age is a number
+                int(self.val2)
+                
+                # now we add to the database
+                sql = "INSERT INTO 'appointments' (name, age, gender, location, scheduled_time, phone) VALUES(?, ?, ?, ?, ?, ?)"
+                c.execute(sql, (self.val1, self.val2, self.val3, self.val4, self.val5, self.val6))
+                conn.commit()
+                tkinter.messagebox.showinfo("Success","Appointment for "+str(self.val1)+" has been created")
+                
+                # Clear the form after successful submission
+                self.clear_form()
+                
+                # Update the log
+                self.box.insert(END, '\nAppointment fixed for ' + str(self.val1) + ' at ' + str(self.val5))
+                
+            except ValueError:
+                tkinter.messagebox.showerror("Error", "Please enter a valid age (number only)")
+            except sqlite3.Error as e:
+                tkinter.messagebox.showerror("Database Error", f"Error adding appointment: {e}")
 
-            self.box.insert(END, '\nAppointment fixed for ' + str(self.val1) + ' at ' + str(self.val5))
-
+    def clear_form(self):
+        """Clear all form fields after successful submission"""
+        self.name_ent.delete(0, END)
+        self.age_ent.delete(0, END)
+        self.var.set("Male")  # Reset to default
+        self.gender_ent = "Male"
+        self.location_ent.delete(0, END)
+        self.time_ent.delete(0, END)
+        self.phone_ent.delete(0, END)
 
 #creating the object
 root = tk.Tk()

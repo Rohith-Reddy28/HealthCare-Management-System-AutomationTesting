@@ -4,7 +4,7 @@ try:
     from Tkinter import *   ## notice capitalized T in Tkinter 
 except ImportError:
     # for Python3
-    from tkinter import *   ## notice lowercase 't' in tkinter here
+    from tkinter import *   ## notice lowercase A't' in tkinter here
     import tkinter as tk
 import sqlite3
 import tkinter.messagebox
@@ -70,7 +70,7 @@ class App:
         self.guestButton.place(x=140, y=290)
 
     # function to login
-    def login(self, event):
+    def login(self, event=None):
         self.id = self.login_id_ent.get()
         self.password = self.password_ent.get()
         
